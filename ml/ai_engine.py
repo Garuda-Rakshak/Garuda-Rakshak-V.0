@@ -1,18 +1,20 @@
 import os
 import joblib
 import pandas as pd
-import shap
 from collections import deque
-sensor_history = deque(maxlen=5)
 
-# ==============================
-# MODEL PATHS
-# ==============================
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 FAULT_MODEL_PATH = os.path.join(
     BASE_DIR, "models", "tuned_knn_fault_model.pkl"
+)
+
+MULTIFAULT_MODEL_PATH = os.path.join(
+    BASE_DIR, "models", "multifault_knn_v2.pkl"
+)
+
+MULTIFAULT_SCALER_PATH = os.path.join(
+    BASE_DIR, "models", "multifault_scaler_v2.pkl"
 )
 
 HEALTH_MODEL_PATH = os.path.join(
@@ -23,19 +25,18 @@ RUL_MODEL_PATH = os.path.join(
     BASE_DIR, "models", "final_rul_xgb.pkl"
 )
 
-
-# ==============================
-# LOAD MODELS
-# ==============================
-
+# Load models
 fault_model = joblib.load(FAULT_MODEL_PATH)
+multifault_model = joblib.load(MULTIFAULT_MODEL_PATH)
+multifault_scaler = joblib.load(MULTIFAULT_SCALER_PATH)
+
 health_model = joblib.load(HEALTH_MODEL_PATH)
 rul_model = joblib.load(RUL_MODEL_PATH)
 
 
-# ==============================
-# PHYSICS MODEL
-# ==============================
+# --------------------------------------------------
+# Physics model
+# --------------------------------------------------
 
 def expected_egt(rpm, throttle, altitude, ambient_temperature):
 
@@ -48,23 +49,20 @@ def expected_egt(rpm, throttle, altitude, ambient_temperature):
     )
 
 
-# ==============================
-# FEATURE ENGINEERING
-# ==============================
+# --------------------------------------------------
+# Feature engineering
+# --------------------------------------------------
+
+sensor_history = deque(maxlen=5)
+
 
 def create_features(sensor_data):
 
-    # Add current sensor reading to history
     sensor_history.append(sensor_data.copy())
 
-    # Convert last 5 readings into DataFrame
     history_df = pd.DataFrame(list(sensor_history))
 
     df = history_df.copy()
-
-    # ==============================
-    # PHYSICS FEATURE
-    # ==============================
 
     df["expected_egt"] = expected_egt(
         df["rpm"],
@@ -73,23 +71,18 @@ def create_features(sensor_data):
         df["ambient_temperature"]
     )
 
-    df["egt_residual"] = df["egt"] - df["expected_egt"]
-
-    # ==============================
-    # TEMPORAL FEATURES
-    # ==============================
+    df["egt_residual"] = (
+        df["egt"] - df["expected_egt"]
+    )
 
     df["rpm_change"] = df["rpm"].diff().fillna(0)
 
     df["rpm_rolling_mean"] = (
-        df["rpm"]
-        .rolling(window=5, min_periods=1)
-        .mean()
+        df["rpm"].rolling(window=5, min_periods=1).mean()
     )
 
     df["rpm_rolling_std"] = (
-        df["rpm"]
-        .rolling(window=5, min_periods=1)
+        df["rpm"].rolling(window=5, min_periods=1)
         .std()
         .fillna(0)
     )
@@ -97,22 +90,17 @@ def create_features(sensor_data):
     df["cht_change"] = df["cht"].diff().fillna(0)
 
     df["cht_rolling_mean"] = (
-        df["cht"]
-        .rolling(window=5, min_periods=1)
-        .mean()
+        df["cht"].rolling(window=5, min_periods=1).mean()
     )
 
     df["egt_change"] = df["egt"].diff().fillna(0)
 
     df["egt_rolling_mean"] = (
-        df["egt"]
-        .rolling(window=5, min_periods=1)
-        .mean()
+        df["egt"].rolling(window=5, min_periods=1).mean()
     )
 
     df["egt_rolling_std"] = (
-        df["egt"]
-        .rolling(window=5, min_periods=1)
+        df["egt"].rolling(window=5, min_periods=1)
         .std()
         .fillna(0)
     )
@@ -135,14 +123,11 @@ def create_features(sensor_data):
     )
 
     df["vibration_mean"] = (
-        df["vibration"]
-        .rolling(window=5, min_periods=1)
-        .mean()
+        df["vibration"].rolling(window=5, min_periods=1).mean()
     )
 
     df["vibration_std"] = (
-        df["vibration"]
-        .rolling(window=5, min_periods=1)
+        df["vibration"].rolling(window=5, min_periods=1)
         .std()
         .fillna(0)
     )
@@ -151,47 +136,12 @@ def create_features(sensor_data):
         df["egt"] - df["cht"]
     )
 
-    # Return only the latest row
     return df.iloc[[-1]].copy()
 
 
-# ==============================
-# MAINTENANCE ADVISORY
-# ==============================
-
-def get_maintenance_action(health, fault):
-
-    if fault == "overheating":
-        return "Inspect cooling system and monitor CHT, EGT and oil temperature."
-
-    elif fault == "injector_abnormality":
-        return "Inspect fuel injector and monitor fuel flow and EGT."
-
-    elif fault == "lubrication_issue":
-        return "Inspect lubrication system and monitor oil pressure and oil temperature."
-
-    elif fault == "abnormal_vibration":
-        return "Inspect bearings, rotating components and vibration sources."
-
-    elif fault == "sensor_failure":
-        return "Inspect affected sensor, wiring and telemetry."
-
-    if health >= 0.80:
-        return "No immediate fault detected. Continue routine monitoring."
-
-    elif health >= 0.60:
-        return "Increase monitoring and inspect important sensor trends."
-
-    elif health >= 0.40:
-        return "Schedule maintenance inspection before next mission."
-
-    else:
-        return "Immediate inspection recommended before further operation."
-
-
-# ==============================
-# HEALTH STATUS
-# ==============================
+# --------------------------------------------------
+# Health status
+# --------------------------------------------------
 
 def get_health_status(health):
 
@@ -207,68 +157,209 @@ def get_health_status(health):
     else:
         return "Critical"
 
+
+# --------------------------------------------------
+# Multi-fault description
+# --------------------------------------------------
+
+FAULT_NAMES = {
+    "overheating": "Overheating",
+    "injector_abnormality": "Injector Abnormality",
+    "lubrication_issue": "Lubrication Issue",
+    "abnormal_vibration": "Abnormal Vibration",
+    "sensor_failure": "Sensor Failure"
+}
+
+
+def get_fault_description(detected_faults):
+
+    if not detected_faults:
+        return "Engine operating normally."
+
+    names = [
+        FAULT_NAMES[fault]
+        for fault in detected_faults
+    ]
+
+    if len(names) == 1:
+        return f"{names[0]} detected."
+
+    return (
+        "Multiple simultaneous engine abnormalities detected: "
+        + ", ".join(names)
+        + "."
+    )
+
+
+# --------------------------------------------------
+# Maintenance advisory
+# --------------------------------------------------
+
+def get_maintenance_action(
+    health,
+    detected_faults
+):
+
+    actions = []
+
+    if "overheating" in detected_faults:
+        actions.append(
+            "Inspect cooling system and monitor CHT, EGT and oil temperature."
+        )
+
+    if "injector_abnormality" in detected_faults:
+        actions.append(
+            "Inspect fuel injector and monitor fuel flow and EGT."
+        )
+
+    if "lubrication_issue" in detected_faults:
+        actions.append(
+            "Inspect lubrication system and monitor oil pressure and oil temperature."
+        )
+
+    if "abnormal_vibration" in detected_faults:
+        actions.append(
+            "Inspect bearings, rotating components and vibration sources."
+        )
+
+    if "sensor_failure" in detected_faults:
+        actions.append(
+            "Inspect affected sensor, wiring and telemetry."
+        )
+
+    if actions:
+        return " ".join(actions)
+
+    if health >= 0.80:
+        return (
+            "No immediate fault detected. "
+            "Continue routine monitoring."
+        )
+
+    elif health >= 0.60:
+        return (
+            "Increase monitoring and inspect important "
+            "sensor trends."
+        )
+
+    elif health >= 0.40:
+        return (
+            "Schedule maintenance inspection "
+            "before next mission."
+        )
+
+    else:
+        return (
+            "Immediate inspection recommended "
+            "before further operation."
+        )
+
+
+# --------------------------------------------------
+# Reset history
+# --------------------------------------------------
+
 def reset_engine_history():
     sensor_history.clear()
-# ==============================
-# MAIN AI FUNCTION
-# ==============================
+
+
+# --------------------------------------------------
+# Main AI prediction
+# --------------------------------------------------
 
 def predict_engine(sensor_data):
 
-    # Create ML features
     features = create_features(sensor_data)
 
+    # ----------------------------------------------
+    # Multi-fault prediction
+    # ----------------------------------------------
 
+    multifault_features = [
+        "rpm",
+        "throttle",
+        "altitude",
+        "ambient_temperature",
+        "cht",
+        "egt",
+        "oil_pressure",
+        "oil_temperature",
+        "fuel_flow",
+        "vibration",
+        "battery_voltage",
+        "alternator_current",
+        "injection_timing"
+    ]
 
-    # --------------------------------
-    # Select model features
-    # --------------------------------
+    X_multifault = features[multifault_features]
+
+    X_multifault_scaled = (
+        multifault_scaler.transform(X_multifault)
+    )
+
+    multifault_prediction = (
+        multifault_model.predict(X_multifault_scaled)[0]
+    )
+
+    detected_faults = [
+        fault
+        for fault, value in zip(
+            [
+                "overheating",
+                "injector_abnormality",
+                "lubrication_issue",
+                "abnormal_vibration",
+                "sensor_failure"
+            ],
+            multifault_prediction
+        )
+        if value == 1
+    ]
+
+    # ----------------------------------------------
+    # Existing single-fault model
+    # ----------------------------------------------
 
     model_features = [
-    "rpm",
-    "throttle",
-    "altitude",
-    "ambient_temperature",
-    "cht",
-    "egt",
-    "oil_pressure",
-    "oil_temperature",
-    "fuel_flow",
-    "vibration",
-    "battery_voltage",
-    "alternator_current",
-    "injection_timing",
-
-    "rpm_change",
-    "rpm_rolling_mean",
-    "rpm_rolling_std",
-    "cht_change",
-    "cht_rolling_mean",
-    "egt_change",
-    "egt_rolling_mean",
-    "egt_rolling_std",
-    "oil_pressure_change",
-    "oil_temperature_change",
-    "fuel_flow_change",
-    "fuel_flow_per_rpm",
-    "vibration_mean",
-    "vibration_std",
-    "egt_cht_difference",
-
-    "egt_residual"
-]
+        "rpm",
+        "throttle",
+        "altitude",
+        "ambient_temperature",
+        "cht",
+        "egt",
+        "oil_pressure",
+        "oil_temperature",
+        "fuel_flow",
+        "vibration",
+        "battery_voltage",
+        "alternator_current",
+        "injection_timing",
+        "rpm_change",
+        "rpm_rolling_mean",
+        "rpm_rolling_std",
+        "cht_change",
+        "cht_rolling_mean",
+        "egt_change",
+        "egt_rolling_mean",
+        "egt_rolling_std",
+        "oil_pressure_change",
+        "oil_temperature_change",
+        "fuel_flow_change",
+        "fuel_flow_per_rpm",
+        "vibration_mean",
+        "vibration_std",
+        "egt_cht_difference",
+        "egt_residual"
+    ]
 
     X = features[model_features]
 
-    # --------------------------------
-    # Fault prediction
-    # --------------------------------
-
+    # Existing single fault
     predicted_fault = fault_model.predict(X)[0]
 
-    # --------------------------------
-    # Health prediction
-    # --------------------------------
+    # ----------------------------------------------
+    # Health
+    # ----------------------------------------------
 
     predicted_health = float(
         health_model.predict(X)[0]
@@ -279,38 +370,31 @@ def predict_engine(sensor_data):
         min(1.0, predicted_health)
     )
 
-    # --------------------------------
-    # RUL prediction
-    # --------------------------------
+    # ----------------------------------------------
+    # RUL
+    # ----------------------------------------------
 
     predicted_rul = float(
         rul_model.predict(X)[0]
     )
 
-    predicted_rul = max(0, predicted_rul)
-
-    # --------------------------------
-    # Health status
-    # --------------------------------
+    predicted_rul = max(
+        0,
+        predicted_rul
+    )
 
     health_status = get_health_status(
         predicted_health
     )
 
-    # --------------------------------
-    # Maintenance recommendation
-    # --------------------------------
+    # ----------------------------------------------
+    # Physics
+    # ----------------------------------------------
 
-    maintenance_action = get_maintenance_action(
-        predicted_health,
-        predicted_fault
+    actual_egt = float(
+        features["egt"].iloc[0]
     )
 
-    # --------------------------------
-    # Physics information
-    # --------------------------------
-
-    actual_egt = float(features["egt"].iloc[0])
     expected_egt_value = float(
         features["expected_egt"].iloc[0]
     )
@@ -319,47 +403,82 @@ def predict_engine(sensor_data):
         features["egt_residual"].iloc[0]
     )
 
-    # --------------------------------
-    # SHAP explanation
-    # --------------------------------
+        # ----------------------------------------------
+    # SHAP
+    # ----------------------------------------------
+    try:
+        import shap
 
-    explainer = shap.TreeExplainer(health_model)
+        explainer = shap.TreeExplainer(health_model)
 
-    shap_values = explainer.shap_values(X)
+        shap_values = explainer.shap_values(X)
 
-    shap_values = shap_values[0]
+        if hasattr(shap_values, "__len__") and len(shap_values) > 0:
+            shap_values = shap_values[0]
 
-    shap_importance = pd.Series(
-        shap_values,
-        index=model_features
-    )
+        shap_importance = pd.Series(
+            shap_values,
+            index=model_features
+        )
 
-    top_features = (
-        shap_importance
-        .abs()
-        .sort_values(ascending=False)
-        .head(5)
-    )
+        top_features = (
+            shap_importance.abs()
+            .sort_values(ascending=False)
+            .head(5)
+        )
 
-    shap_explanation = []
+        shap_explanation = []
 
-    for feature in top_features.index:
-
-        shap_explanation.append({
-            "feature": feature,
-            "impact": round(
-                float(shap_importance[feature]),
-                6
+        for feature in top_features.index:
+            shap_explanation.append(
+                {
+                    "feature": feature,
+                    "impact": round(
+                        float(shap_importance[feature]),
+                        6
+                    )
+                }
             )
-        })
 
-    # --------------------------------
+    except Exception:
+        shap_explanation = [
+            {
+                "feature": "SHAP unavailable",
+                "impact": 0.0
+            }
+        ]
+
+
+    # ----------------------------------------------
+    # Fault description
+    # ----------------------------------------------
+
+    fault_description = get_fault_description(
+        detected_faults
+    )
+
+    # ----------------------------------------------
+    # Maintenance
+    # ----------------------------------------------
+
+    maintenance_action = get_maintenance_action(
+        predicted_health,
+        detected_faults
+    )
+
+    # ----------------------------------------------
     # Final result
-    # --------------------------------
+    # ----------------------------------------------
 
     result = {
 
-        "predicted_fault": str(predicted_fault),
+        "predicted_fault": str(
+            predicted_fault
+        ),
+
+        "detected_faults": detected_faults,
+
+        "fault_description": fault_description,
 
         "predicted_health": round(
             predicted_health,
@@ -388,9 +507,11 @@ def predict_engine(sensor_data):
             2
         ),
 
-        "maintenance_action": maintenance_action,
+        "maintenance_action":
+            maintenance_action,
 
-        "shap_explanation": shap_explanation
+        "shap_explanation":
+            shap_explanation
     }
 
     return result
