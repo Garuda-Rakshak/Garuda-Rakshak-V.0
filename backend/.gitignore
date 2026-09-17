@@ -1,0 +1,9 @@
+node_modules/
+.env
+reports/
+exports/
+test_reports/
+test_exports/
+coverage/
+*.log
+.DS_Store
