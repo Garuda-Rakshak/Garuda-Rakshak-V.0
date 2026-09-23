@@ -1,0 +1,39 @@
+services:
+  # ─── Backend Web Service (Node.js API & WebSockets) ───────────────
+  - type: web
+    name: airo-one-backend
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: MONGO_URI
+        sync: false
+      - key: REPORTS_DIR
+        value: ./reports
+      - key: EXPORTS_DIR
+        value: ./exports
+
+  # ─── Frontend Static Site (React + Vite SPA) ──────────────────────
+  - type: web
+    name: airo-one-frontend
+    runtime: static
+    plan: free
+    region: oregon
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
