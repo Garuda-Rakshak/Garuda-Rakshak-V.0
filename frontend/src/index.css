@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #080C14;
+    color: #F8FAFC;
+    font-feature-settings: "tnum" on, "zero" on;
+    letter-spacing: -0.01em;
+  }
+}
+
+/* Dark Tactical HUD Grid Texture */
+.bg-gcs-map {
+  background-color: #080C14;
+  background-image:
+    radial-gradient(circle at 15% 15%, rgba(16, 185, 129, 0.08) 0%, transparent 45%),
+    radial-gradient(circle at 85% 85%, rgba(6, 182, 212, 0.06) 0%, transparent 45%),
+    linear-gradient(rgba(148, 163, 184, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.04) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+}
+
+/* Dark Theme GCS Panel & Card Styles */
+.gcs-panel {
+  background: #0D1420;
+  border: 1px solid #1E293B;
+  border-radius: 1rem;
+  box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.gcs-card {
+  background: #131C2B;
+  border: 1px solid #1E2D42;
+  border-radius: 0.75rem;
+  transition: all 0.2s ease;
+}
+
+.gcs-card:hover {
+  background: #182438;
+  border-color: #10B981;
+}
+
+.gcs-button {
+  background: #131C2B;
+  border: 1px solid #233247;
+  color: #CBD5E1;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.gcs-button:hover {
+  background: #1C2B42;
+  border-color: #10B981;
+  color: #34D399;
+}
+
+.gcs-button-active {
+  background: #059669;
+  border-color: #10B981;
+  color: #FFFFFF;
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.35);
+}
+
+/* Custom Scrollbar (Dark Tactical Theme) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #080C14;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1E293B;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}

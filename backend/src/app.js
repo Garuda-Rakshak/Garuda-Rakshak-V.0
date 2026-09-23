@@ -11,6 +11,7 @@ const shelterRoutes  = require('./routes/shelter.routes');
 const simulateRoutes = require('./routes/simulate.routes');
 const runsRoutes     = require('./routes/runs.routes');
 const optimizeRoutes = require('./routes/optimize.routes');
+const mlRoutes       = require('./routes/ml.routes');
 
 function createApp() {
   const app = express();
@@ -40,6 +41,7 @@ function createApp() {
   app.use('/api/v1/simulate', simulateRoutes);
   app.use('/api/v1/runs',     runsRoutes);
   app.use('/api/v1/optimize', optimizeRoutes);
+  app.use('/api/v1/ml',       mlRoutes);
 
   // ── 404 handler ─────────────────────────────────────────────────────────
   app.use((req, res) => {

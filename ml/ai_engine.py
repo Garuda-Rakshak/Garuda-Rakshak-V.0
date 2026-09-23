@@ -3,35 +3,23 @@ import joblib
 import pandas as pd
 from collections import deque
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODELS_DIR = os.path.join(BASE_DIR, "models")
+if not os.path.exists(MODELS_DIR):
+    MODELS_DIR = os.path.join(os.path.dirname(BASE_DIR), "models")
 
-FAULT_MODEL_PATH = os.path.join(
-    BASE_DIR, "models", "tuned_knn_fault_model.pkl"
-)
-
-MULTIFAULT_MODEL_PATH = os.path.join(
-    BASE_DIR, "models", "multifault_knn_v2.pkl"
-)
-
-MULTIFAULT_SCALER_PATH = os.path.join(
-    BASE_DIR, "models", "multifault_scaler_v2.pkl"
-)
-
-HEALTH_MODEL_PATH = os.path.join(
-    BASE_DIR, "models", "final_health_xgb.pkl"
-)
-
-RUL_MODEL_PATH = os.path.join(
-    BASE_DIR, "models", "final_rul_xgb.pkl"
-)
+FAULT_MODEL_PATH = os.path.join(MODELS_DIR, "tuned_knn_fault_model.pkl")
+MULTIFAULT_MODEL_PATH = os.path.join(MODELS_DIR, "multifault_knn_v2.pkl")
+MULTIFAULT_SCALER_PATH = os.path.join(MODELS_DIR, "multifault_scaler_v2.pkl")
+HEALTH_MODEL_PATH = os.path.join(MODELS_DIR, "final_health_xgb.pkl")
+RUL_MODEL_PATH = os.path.join(MODELS_DIR, "final_rul_xgb.pkl")
 
 # Load models
-fault_model = joblib.load(FAULT_MODEL_PATH)
-multifault_model = joblib.load(MULTIFAULT_MODEL_PATH)
-multifault_scaler = joblib.load(MULTIFAULT_SCALER_PATH)
-
-health_model = joblib.load(HEALTH_MODEL_PATH)
-rul_model = joblib.load(RUL_MODEL_PATH)
+fault_model = joblib.load(FAULT_MODEL_PATH) if os.path.exists(FAULT_MODEL_PATH) else None
+multifault_model = joblib.load(MULTIFAULT_MODEL_PATH) if os.path.exists(MULTIFAULT_MODEL_PATH) else None
+multifault_scaler = joblib.load(MULTIFAULT_SCALER_PATH) if os.path.exists(MULTIFAULT_SCALER_PATH) else None
+health_model = joblib.load(HEALTH_MODEL_PATH) if os.path.exists(HEALTH_MODEL_PATH) else None
+rul_model = joblib.load(RUL_MODEL_PATH) if os.path.exists(RUL_MODEL_PATH) else None
 
 
 # --------------------------------------------------
