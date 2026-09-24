@@ -25,6 +25,20 @@ function createApp() {
     app.use(morgan('dev'));
   }
 
+  // ── Root / Landing ───────────────────────────────────────────────────────
+  app.get('/', (req, res) => {
+    res.json({
+      success: true,
+      service: 'Garuda-Rakshak API Server',
+      status: 'online',
+      version: '1.0.0',
+      frontendUrl: 'http://localhost:5173',
+      healthCheck: '/health',
+      endpoints: '/api/v1/*',
+      timestamp: new Date().toISOString(),
+    });
+  });
+
   // ── Health check ────────────────────────────────────────────────────────
   app.get('/health', (req, res) => {
     res.json({

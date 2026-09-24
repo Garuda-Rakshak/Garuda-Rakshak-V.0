@@ -4,12 +4,12 @@
   "private": true,
   "description": "Garuda-Rakshak Airo One Platform",
   "scripts": {
-    "dev": "npm run dev --prefix frontend",
+    "dev": "node scripts/dev.js",
+    "dev:all": "node scripts/dev.js",
     "dev:frontend": "npm run dev --prefix frontend",
     "dev:backend": "npm run dev --prefix backend",
-    "dev:all": "node -e \"const { spawn } = require('child_process'); spawn('npm', ['run', 'dev', '--prefix', 'backend'], { stdio: 'inherit', shell: true }); spawn('npm', ['run', 'dev', '--prefix', 'frontend'], { stdio: 'inherit', shell: true });\"",
     "build": "npm run build --prefix frontend",
-    "start": "npm run start --prefix backend",
+    "start": "node scripts/dev.js",
     "test": "npm run test --prefix backend"
   }
 }

@@ -12,7 +12,9 @@ import {
   FileText, 
   Volume2, 
   VolumeX, 
-  AlertCircle
+  AlertCircle,
+  Server,
+  Wifi
 } from 'lucide-react';
 
 export function TacticalHeader() {
@@ -26,6 +28,7 @@ export function TacticalHeader() {
   } = useDigitalTwinStore();
 
   const [zuluTime, setZuluTime] = useState('');
+  const [backendStatus, setBackendStatus] = useState('checking'); // 'connected' | 'offline' | 'checking'
 
   useEffect(() => {
     const updateTime = () => {
@@ -38,6 +41,24 @@ export function TacticalHeader() {
     updateTime();
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const checkBackend = async () => {
+      try {
+        const res = await fetch('/health');
+        if (res.ok) {
+          setBackendStatus('connected');
+        } else {
+          setBackendStatus('offline');
+        }
+      } catch (e) {
+        setBackendStatus('offline');
+      }
+    };
+    checkBackend();
+    const timer = setInterval(checkBackend, 4000);
+    return () => clearInterval(timer);
   }, []);
 
   const navItems = [
@@ -105,6 +126,22 @@ export function TacticalHeader() {
         <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#131C2B] border border-slate-800 text-xs font-semibold text-slate-300">
           <MapPin className="w-3.5 h-3.5 text-emerald-400" />
           <span>34.1526° N, 77.5771° E</span>
+        </div>
+
+        {/* Backend API Status Indicator */}
+        <div 
+          title={backendStatus === 'connected' ? 'Backend API: Connected (Port 5000)' : 'Backend API: Offline (Using Browser Engine)'}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-mono font-bold transition-all ${
+            backendStatus === 'connected'
+              ? 'bg-emerald-950/70 border-emerald-500/50 text-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.2)]'
+              : 'bg-amber-950/50 border-amber-500/40 text-amber-300'
+          }`}
+        >
+          <span className={`w-2 h-2 rounded-full ${backendStatus === 'connected' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+          <Server className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">
+            {backendStatus === 'connected' ? 'API 5000' : 'OFFLINE'}
+          </span>
         </div>
 
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-xs font-mono font-bold text-emerald-400 shadow-sm">
