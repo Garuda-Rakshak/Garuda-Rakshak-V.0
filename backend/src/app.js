@@ -13,8 +13,29 @@ const runsRoutes     = require('./routes/runs.routes');
 const optimizeRoutes = require('./routes/optimize.routes');
 const mlRoutes       = require('./routes/ml.routes');
 
+const path         = require('path');
+const fs           = require('fs');
+
+function findFrontendDist() {
+  const candidates = [
+    process.env.FRONTEND_DIST,
+    path.resolve(__dirname, '../../frontend/dist'),
+    path.resolve(process.cwd(), 'frontend/dist'),
+    path.resolve(process.cwd(), '../frontend/dist'),
+    path.resolve(process.cwd(), 'dist'),
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate) && fs.existsSync(path.join(candidate, 'index.html'))) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
 function createApp() {
   const app = express();
+  const frontendDist = findFrontendDist();
 
   // ── Core middleware ─────────────────────────────────────────────────────
   app.use(cors());
@@ -25,25 +46,17 @@ function createApp() {
     app.use(morgan('dev'));
   }
 
-  // ── Root / Landing ───────────────────────────────────────────────────────
-  app.get('/', (req, res) => {
-    res.json({
-      success: true,
-      service: 'Garuda-Rakshak API Server',
-      status: 'online',
-      version: '1.0.0',
-      frontendUrl: 'http://localhost:5173',
-      healthCheck: '/health',
-      endpoints: '/api/v1/*',
-      timestamp: new Date().toISOString(),
-    });
-  });
+  // ── Serve static frontend assets if built ────────────────────────────────
+  if (frontendDist) {
+    app.use(express.static(frontendDist));
+  }
 
   // ── Health check ────────────────────────────────────────────────────────
   app.get('/health', (req, res) => {
     res.json({
       success: true,
-      service: 'AeroTwin-Habitat Backend',
+      service: 'Garuda-Rakshak Airo One Platform',
+      status: 'online',
       version: '1.0.0',
       timestamp: new Date().toISOString(),
     });
@@ -56,6 +69,30 @@ function createApp() {
   app.use('/api/v1/runs',     runsRoutes);
   app.use('/api/v1/optimize', optimizeRoutes);
   app.use('/api/v1/ml',       mlRoutes);
+
+  // ── Root / Landing (if no static frontend) ──────────────────────────────
+  if (!frontendDist) {
+    app.get('/', (req, res) => {
+      res.json({
+        success: true,
+        service: 'Garuda-Rakshak API Server',
+        status: 'online',
+        version: '1.0.0',
+        frontendUrl: 'http://localhost:5173',
+        healthCheck: '/health',
+        endpoints: '/api/v1/*',
+        timestamp: new Date().toISOString(),
+      });
+    });
+  } else {
+    // ── SPA Fallback for all other routes ─────────────────────────────────
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api') || req.path === '/health') {
+        return next();
+      }
+      res.sendFile(path.join(frontendDist, 'index.html'));
+    });
+  }
 
   // ── 404 handler ─────────────────────────────────────────────────────────
   app.use((req, res) => {

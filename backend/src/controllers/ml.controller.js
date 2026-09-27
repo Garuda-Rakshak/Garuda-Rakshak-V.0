@@ -5,37 +5,80 @@ const path = require('path');
 const { spawn } = require('child_process');
 
 const ROOT_DIR = path.resolve(__dirname, '../../../');
-const NORMAL_CSV_PATH = path.join(ROOT_DIR, 'normal_engine_continuous_dataset.csv');
-const FAULTY_CSV_PATH = path.join(ROOT_DIR, 'faulty_engine_continuous_dataset.csv');
-const PYTHON_SCRIPT_PATH = path.join(ROOT_DIR, 'ml', 'ml_api.py');
+const BACKEND_DIR = path.resolve(__dirname, '../../');
+
+function findFirstExistingFile(candidates) {
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  return null;
+}
+
+const NORMAL_CSV_PATH = findFirstExistingFile([
+  path.join(ROOT_DIR, 'normal_engine_continuous_dataset.csv'),
+  path.join(BACKEND_DIR, 'data', 'normal_engine_continuous_dataset.csv'),
+  path.join(process.cwd(), 'normal_engine_continuous_dataset.csv'),
+  path.join(process.cwd(), 'data', 'normal_engine_continuous_dataset.csv'),
+  path.join(__dirname, '../data', 'normal_engine_continuous_dataset.csv')
+]);
+
+const FAULTY_CSV_PATH = findFirstExistingFile([
+  path.join(ROOT_DIR, 'faulty_engine_continuous_dataset.csv'),
+  path.join(BACKEND_DIR, 'data', 'faulty_engine_continuous_dataset.csv'),
+  path.join(process.cwd(), 'faulty_engine_continuous_dataset.csv'),
+  path.join(process.cwd(), 'data', 'faulty_engine_continuous_dataset.csv'),
+  path.join(__dirname, '../data', 'faulty_engine_continuous_dataset.csv')
+]);
+
+const JSON_BACKUP_PATH = findFirstExistingFile([
+  path.join(BACKEND_DIR, 'data', 'telemetryDatasets.json'),
+  path.join(ROOT_DIR, 'frontend', 'src', 'data', 'telemetryDatasets.json'),
+  path.join(process.cwd(), 'data', 'telemetryDatasets.json')
+]);
+
+const PYTHON_SCRIPT_PATH = findFirstExistingFile([
+  path.join(ROOT_DIR, 'ml', 'ml_api.py'),
+  path.join(BACKEND_DIR, 'ml', 'ml_api.py'),
+  path.join(process.cwd(), 'ml', 'ml_api.py')
+]);
 
 /**
  * Fast helper to parse CSV string into array of structured objects
  */
-function parseCsv(filePath) {
-  if (!fs.existsSync(filePath)) {
-    return [];
+function parseCsv(filePath, fallbackType = 'normal') {
+  if (filePath && fs.existsSync(filePath)) {
+    const raw = fs.readFileSync(filePath, 'utf-8');
+    const lines = raw.split(/\r?\n/).filter(line => line.trim().length > 0);
+    if (lines.length >= 2) {
+      const headers = lines[0].split(',').map(h => h.trim());
+      const rows = [];
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(v => v.trim());
+        if (values.length !== headers.length) continue;
+        const rowObj = { rowIndex: i - 1 };
+        headers.forEach((h, idx) => {
+          const val = values[idx];
+          const num = Number(val);
+          rowObj[h] = !isNaN(num) && val !== '' ? num : val;
+        });
+        rows.push(rowObj);
+      }
+      if (rows.length > 0) return rows;
+    }
   }
-  const raw = fs.readFileSync(filePath, 'utf-8');
-  const lines = raw.split(/\r?\n/).filter(line => line.trim().length > 0);
-  if (lines.length < 2) return [];
 
-  const headers = lines[0].split(',').map(h => h.trim());
-  const rows = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(',').map(v => v.trim());
-    if (values.length !== headers.length) continue;
-
-    const rowObj = { rowIndex: i - 1 };
-    headers.forEach((h, idx) => {
-      const val = values[idx];
-      const num = Number(val);
-      rowObj[h] = !isNaN(num) && val !== '' ? num : val;
-    });
-    rows.push(rowObj);
+  // Fallback to JSON backup if available
+  if (JSON_BACKUP_PATH && fs.existsSync(JSON_BACKUP_PATH)) {
+    try {
+      const jsonContent = JSON.parse(fs.readFileSync(JSON_BACKUP_PATH, 'utf-8'));
+      if (jsonContent[fallbackType] && Array.isArray(jsonContent[fallbackType])) {
+        return jsonContent[fallbackType];
+      }
+    } catch (e) {
+      // ignore
+    }
   }
-  return rows;
+  return [];
 }
 
 /**
@@ -79,8 +122,8 @@ function runPythonInference(sensorData) {
  */
 exports.getDatasetsInfo = async (req, res, next) => {
   try {
-    const normalRows = parseCsv(NORMAL_CSV_PATH);
-    const faultyRows = parseCsv(FAULTY_CSV_PATH);
+    const normalRows = parseCsv(NORMAL_CSV_PATH, 'normal');
+    const faultyRows = parseCsv(FAULTY_CSV_PATH, 'faulty');
 
     res.json({
       success: true,
@@ -123,14 +166,14 @@ exports.getDatasetRows = async (req, res, next) => {
     const isFaulty = type === 'faulty';
     const filePath = isFaulty ? FAULTY_CSV_PATH : NORMAL_CSV_PATH;
 
-    if (!fs.existsSync(filePath)) {
+    const rows = parseCsv(filePath, isFaulty ? 'faulty' : 'normal');
+    if (rows.length === 0) {
       return res.status(404).json({
         success: false,
-        error: { code: 'DATASET_NOT_FOUND', message: `Dataset ${type} not found at ${filePath}` }
+        error: { code: 'DATASET_NOT_FOUND', message: `Dataset ${type} not found` }
       });
     }
 
-    const rows = parseCsv(filePath);
     res.json({
       success: true,
       datasetType: type,
