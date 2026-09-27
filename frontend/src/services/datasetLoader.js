@@ -35,7 +35,8 @@ export class DatasetLoader {
    */
   async fetchFromBackend(datasetType = 'normal') {
     try {
-      const res = await fetch(`/api/v1/ml/dataset/${datasetType}`);
+      const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+      const res = await fetch(`${apiBase}/api/v1/ml/dataset/${datasetType}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.success && Array.isArray(data.rows) && data.rows.length > 0) {

@@ -8,6 +8,7 @@ services:
     rootDir: backend
     buildCommand: npm install
     startCommand: npm start
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
@@ -25,9 +26,8 @@ services:
         value: ./exports
 
   # ─── Frontend Static Site (React + Vite SPA) ──────────────────────
-  - type: web
+  - type: static
     name: airo-one-frontend
-    runtime: static
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
@@ -35,3 +35,9 @@ services:
       - type: rewrite
         source: /*
         destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: airo-one-backend
+          property: host

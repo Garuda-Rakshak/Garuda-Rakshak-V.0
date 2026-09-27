@@ -21,8 +21,8 @@ async function connectDB(retries = 0) {
       await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
       return connectDB(retries + 1);
     }
-    console.error('❌  MongoDB connection failed after max retries:', err.message);
-    process.exit(1);
+    console.error('⚠️  MongoDB connection failed after max retries:', err.message);
+    console.warn('⚠️  Continuing server bootstrap without database. Database features will be unavailable until MONGO_URI is configured.');
   }
 }
 

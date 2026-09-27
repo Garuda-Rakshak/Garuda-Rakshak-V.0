@@ -46,7 +46,8 @@ export function TacticalHeader() {
   useEffect(() => {
     const checkBackend = async () => {
       try {
-        const res = await fetch('/health');
+        const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+        const res = await fetch(`${apiBase}/health`);
         if (res.ok) {
           setBackendStatus('connected');
         } else {

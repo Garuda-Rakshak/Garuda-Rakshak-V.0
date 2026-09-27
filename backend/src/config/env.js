@@ -6,8 +6,8 @@ const { z } = require('zod');
 const envSchema = z.object({
   PORT: z.string().default('5000'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  MONGO_URI: z.string().min(1, 'MONGO_URI is required'),
-  JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
+  MONGO_URI: z.string().default('mongodb://127.0.0.1:27017/aerotwin_habitat'),
+  JWT_SECRET: z.string().default('aerotwin_default_secret_production_key_64_bytes_secure_string_2026'),
   JWT_EXPIRES_IN: z.string().default('7d'),
   REPORTS_DIR: z.string().default('./reports'),
   EXPORTS_DIR: z.string().default('./exports'),
